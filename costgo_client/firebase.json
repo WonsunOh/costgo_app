@@ -1,0 +1,41 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "costgo-commerce-app",
+          "appId": "1:942626013305:android:83558652a695e38e6cd4a8",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "costgo-commerce-app",
+          "configurations": {
+            "android": "1:942626013305:android:83558652a695e38e6cd4a8",
+            "ios": "1:942626013305:ios:55f17d2b278359386cd4a8",
+            "macos": "1:942626013305:ios:55f17d2b278359386cd4a8",
+            "web": "1:942626013305:web:fab67fae05734eba6cd4a8",
+            "windows": "1:942626013305:web:90dd8daab8ce73a06cd4a8"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint"
+      ]
+    }
+  ]
+}

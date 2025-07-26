@@ -1,16 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const wishlistController = require('../controllers/wishlistController');
-const { protect } = require('../middleware/authMiddleware'); // 인증 미들웨어 import
+const authMiddleware = require('../middleware/authMiddleware');
 
-// 모든 찜 목록 관련 라우트는 로그인이 필요하므로 protect 미들웨어를 먼저 적용
-router.use(protect);
+// 모든 경로는 먼저 로그인 여부를 확인합니다.
+router.use(authMiddleware.isAuth);
 
-router.route('/')
-  .get(wishlistController.getWishlist)      // GET /api/wishlist
-  .post(wishlistController.addToWishlist);     // POST /api/wishlist
+// [GET] /api/wishlist - 현재 사용자의 위시리스트 가져오기
+router.get('/', wishlistController.getWishlist);
 
-router.route('/:productId')
-  .delete(wishlistController.removeFromWishlist); // DELETE /api/wishlist/:productId
+// [POST] /api/wishlist/add - 위시리스트에 상품 추가
+router.post('/add', wishlistController.addToWishlist);
+
+// [DELETE] /api/wishlist/remove/:productId - 위시리스트에서 상품 제거
+router.delete('/remove/:productId', wishlistController.removeFromWishlist);
 
 module.exports = router;

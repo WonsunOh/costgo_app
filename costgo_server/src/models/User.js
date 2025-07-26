@@ -42,6 +42,12 @@ const userSchema = new mongoose.Schema({
     type: Date,
   },
 
+  // isProfileComplete 필드 추가 (기본값: false)
+  isProfileComplete: {
+    type: Boolean,
+    default: false,
+  },
+
  // ★★★ 찜한 상품 ID 목록을 저장할 배열 필드 추가 ★★★
   wishlist: [{
     type: mongoose.Schema.Types.ObjectId, // Product의 _id를 참조

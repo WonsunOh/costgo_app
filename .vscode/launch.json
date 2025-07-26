@@ -1,0 +1,25 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "CostGo User (Android)",
+            "request": "launch",
+            "type": "dart",
+            "program": "costgo_client/lib/main.dart",
+            "args": [
+                "--dart-define=APP_TYPE=user"
+            ]
+        },
+        {
+            "name": "CostGo Admin (Web)",
+            "request": "launch",
+            "type": "dart",
+            "deviceId": "chrome",
+            "program": "costgo_client/lib/main.dart",
+            "args": [
+                "--dart-define=APP_TYPE=admin"
+            ]
+        }
+    ]
+}

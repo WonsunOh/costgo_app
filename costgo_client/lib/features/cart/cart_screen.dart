@@ -1,161 +1,101 @@
+import 'package:costgo_app/models/user_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import 'package:costgo_app/providers/cart_provider.dart';
+import 'package:costgo_app/utils/kr_price_format.dart';
 import '../../models/cart_item_model.dart';
-import '../../providers/cart_provider.dart';
-import '../order/order_form_screen.dart';
 import 'widgets/cart_item.dart';
+import 'package:go_router/go_router.dart'; // GoRouter 임포트 추가
 
-class ShoppingCartScreen extends ConsumerWidget {
-  const ShoppingCartScreen({super.key});
+class CartScreen extends ConsumerWidget {
+  const CartScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cartState = ref.watch(cartProvider);
-    final cartItems = cartState.items;
-    final selectedItemsTotalPrice = ref.watch(selectedItemsTotalPriceProvider);
-    final selectedItemsCount = ref.watch(selectedItemsCountProvider);
-
-    final bool isAllSelected = cartItems.isNotEmpty && cartItems.every((item) => item.isSelected);
+    final cartItems = ref.watch(cartNotifierProvider);
+    final cartTotal = ref.watch(cartTotalProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('장바구니'),
-        centerTitle: true,
-        elevation: 1,
-        actions: [
-          if (cartItems.isNotEmpty)
-            TextButton(
-              onPressed: () {
-                ref.read(cartProvider.notifier).toggleAllItemsSelected(!isAllSelected);
-              },
-              child: Text(
-                isAllSelected ? '전체해제' : '전체선택',
-                style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.w600),
-              ),
-            ),
-        ],
+        title: Text('장바구니 (${cartItems.length})'),
       ),
       body: cartItems.isEmpty
-          ? _buildEmptyCartView(context)
+          ? const Center(
+              child: Text('장바구니에 담긴 상품이 없습니다.'),
+            )
           : Column(
               children: [
                 Expanded(
                   child: ListView.builder(
-                    padding: const EdgeInsets.all(12.0),
+                    padding: const EdgeInsets.all(8.0),
                     itemCount: cartItems.length,
                     itemBuilder: (context, index) {
-                      final cartItem = cartItems[index];
-                      return CartItemWidget(cartItem: cartItem);
+                      return CartItem(item: cartItems[index]);
                     },
                   ),
                 ),
-                // 하단 주문 요약 및 버튼
-                _buildOrderSummarySection(context, selectedItemsCount, selectedItemsTotalPrice, ref),
+                // 주문 정보 및 결제 버튼
+                // 1. _buildCheckoutSection 호출 시 cartItems를 전달합니다.
+                _buildCheckoutSection(context, cartItems, cartTotal),
               ],
             ),
     );
   }
 
-  Widget _buildEmptyCartView(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.shopping_cart_outlined, size: 80, color: Colors.grey.shade400),
-          const SizedBox(height: 20),
-          const Text(
-            '장바구니가 비어있습니다.',
-            style: TextStyle(fontSize: 18, color: Colors.grey),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () {
-              // 홈 화면으로 이동 (모든 이전 화면 스택 제거 후 홈으로)
-              // 또는 MainScreen의 탭을 0번(홈)으로 변경
-              Navigator.of(context).popUntil((route) => route.isFirst);
-              // 만약 MainScreen의 탭을 Riverpod으로 관리한다면:
-              // ref.read(mainScreenTabProvider.notifier).state = 0;
-              // Navigator.of(context).pop(); // 현재 장바구니 화면 닫기
-              print('쇼핑 계속하기 -> 홈으로 이동');
-            },
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+  // 2. _buildCheckoutSection 메소드 정의에서 cartItems를 인자로 받습니다.
+  Widget _buildCheckoutSection(BuildContext context, List<CartItemModel> cartItems, double total) {
+    return Card(
+      margin: const EdgeInsets.all(8.0),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('총 상품 금액:', style: TextStyle(fontSize: 16)),
+                Text(krPriceFormat(total), style: const TextStyle(fontSize: 16)),
+              ],
             ),
-            child: const Text('쇼핑 계속하기', style: TextStyle(fontSize: 16)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOrderSummarySection(BuildContext context, int selectedCount, double totalPrice, WidgetRef ref) {
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.5),
-            spreadRadius: 0,
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '총 선택된 상품: $selectedCount개',
-                style: const TextStyle(fontSize: 16, color: Colors.black54),
+            const SizedBox(height: 8),
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('배송비:', style: TextStyle(fontSize: 16)),
+                Text('3,000원', style: TextStyle(fontSize: 16)),
+              ],
+            ),
+            const Divider(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('총 결제금액:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(
+                  krPriceFormat(total + 3000),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
               ),
-              Text(
-                '${totalPrice.toStringAsFixed(0)}원',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: selectedCount > 0
-                ? () {
-                    // 주문할 상품 목록 필터링
-                    final List<CartItem> itemsToOrder = ref.read(cartProvider).items.where((item) => item.isSelected).toList();
-                    
-                    if (itemsToOrder.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('주문할 상품을 선택해주세요.')),
-                      );
-                      return;
+              // 3. 이제 cartItems에 접근할 수 있으므로 에러가 발생하지 않습니다.
+              onPressed: cartItems.isNotEmpty
+                  ? () {
+                      context.push('/order-form');
                     }
-
-                    print('선택된 상품 ${itemsToOrder.length}개 주문하기');
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => OrderFormScreen(orderedItems: itemsToOrder),
-                      ),
-                    );
-                  }
-                : null, // 선택된 상품이 없으면 비활성화
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor, // 활성화 상태 배경색
-              foregroundColor: Colors.white, // 활성화 상태 텍스트 및 아이콘 색상
-              disabledBackgroundColor: Colors.grey.shade300, // 비활성화 상태 배경색
-              disabledForegroundColor: Colors.grey.shade500, // 비활성화 상태 텍스트 및 아이콘 색상
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold), // 여기에는 color를 지정하지 않는 것이 좋음
+                  : null,
+              child: const Text('주문하기'),
             ),
-            child: Text('주문하기 (${selectedCount}개)', style: const TextStyle(color: Colors.white)),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

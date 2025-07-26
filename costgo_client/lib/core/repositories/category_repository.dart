@@ -1,85 +1,78 @@
+// costgo_client/lib/core/repositories/category_repository.dart
+import 'package:costgo_app/models/category_model.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:costgo_app/providers/dio_provider.dart';
 
-import '../../models/category_model.dart';
-import 'auth_repository.dart';
-
-final categoryRepositoryProvider = Provider<CategoryRepository>((ref) {
-  // dioProvider를 사용하여 Dio 인스턴스를 가져옵니다.
-  return CategoryRepository(ref.watch(dioProvider));
-});
+// CategoryRepositoryProvider (기존과 동일)
+final categoryRepositoryProvider = Provider(
+  (ref) => CategoryRepository(dio: ref.watch(dioProvider)),
+);
 
 class CategoryRepository {
   final Dio _dio;
-  final String _endpoint = '/categories'; // Node.js 서버의 카테고리 API 경로
 
-  CategoryRepository(this._dio);
+  CategoryRepository({required Dio dio}) : _dio = dio;
 
-  // 모든 카테고리 목록 가져오기
-  Future<List<MainCategory>> fetchCategories() async {
+  // READ: 모든 카테고리 조회 (기존 메소드)
+  Future<List<CategoryModel>> getCategories() async {
     try {
-      final response = await _dio.get(_endpoint);
-      // API 응답(List<dynamic>)을 List<MainCategory>로 변환
+      final response = await _dio.get('/categories');
       final List<dynamic> data = response.data;
-      return data.map((item) => MainCategory.fromJson(item)).toList();
+      return data.map((json) => CategoryModel.fromJson(json)).toList();
     } on DioException catch (e) {
-      throw Exception('카테고리 목록 로드 실패: ${e.response?.data['message'] ?? e.message}');
+      // Dio 에러 발생 시 더 구체적인 메시지 반환
+      throw Exception('카테고리 목록을 불러오는데 실패했습니다: ${e.response?.data['error'] ?? e.message}');
     } catch (e) {
-      throw Exception('알 수 없는 오류가 발생했습니다.');
+      throw Exception('알 수 없는 오류가 발생했습니다: $e');
     }
   }
 
-  // 새 메인 카테고리 추가
-  Future<void> addMainCategory(String name) async {
+  // CREATE: 새로운 카테고리 생성
+  Future<CategoryModel> createCategory(String name, {String? parentId}) async {
     try {
-      await _dio.post(_endpoint, data: {'name': name});
+      final response = await _dio.post(
+        '/categories',
+        data: {
+          'name': name,
+          'parent': parentId,
+        },
+      );
+      return CategoryModel.fromJson(response.data);
     } on DioException catch (e) {
-      throw Exception('메인 카테고리 추가 실패: ${e.response?.data['message'] ?? e.message}');
+      throw Exception('카테고리 생성에 실패했습니다: ${e.response?.data['error'] ?? e.message}');
+    } catch (e) {
+      throw Exception('알 수 없는 오류가 발생했습니다: $e');
     }
   }
 
-  // 메인 카테고리 수정
-  Future<void> updateMainCategory(String id, String newName) async {
+  // UPDATE: 기존 카테고리 수정
+  Future<CategoryModel> updateCategory(String id, {String? name, String? parentId}) async {
     try {
-      await _dio.put('$_endpoint/$id', data: {'name': newName});
+      final Map<String, dynamic> data = {};
+      if (name != null) data['name'] = name;
+      if (parentId != null) data['parent'] = parentId;
+
+      final response = await _dio.put(
+        '/categories/$id',
+        data: data,
+      );
+      return CategoryModel.fromJson(response.data);
     } on DioException catch (e) {
-      throw Exception('메인 카테고리 수정 실패: ${e.response?.data['message'] ?? e.message}');
+      throw Exception('카테고리 수정에 실패했습니다: ${e.response?.data['error'] ?? e.message}');
+    } catch (e) {
+      throw Exception('알 수 없는 오류가 발생했습니다: $e');
     }
   }
 
-  // 메인 카테고리 삭제
-  Future<void> deleteMainCategory(String id) async {
+  // DELETE: 카테고리 삭제
+  Future<void> deleteCategory(String id) async {
     try {
-      await _dio.delete('$_endpoint/$id');
+      await _dio.delete('/categories/$id');
     } on DioException catch (e) {
-      throw Exception('메인 카테고리 삭제 실패: ${e.response?.data['message'] ?? e.message}');
-    }
-  }
-
-  // 서브 카테고리 추가
-  Future<void> addSubCategory(String mainCategoryId, String subCategoryName) async {
-    try {
-      await _dio.post('$_endpoint/$mainCategoryId/subcategories', data: {'name': subCategoryName});
-    } on DioException catch (e) {
-      throw Exception('서브 카테고리 추가 실패: ${e.response?.data['message'] ?? e.message}');
-    }
-  }
-
-  // 서브 카테고리 수정
-  Future<void> updateSubCategory(String mainCategoryId, String subCategoryId, String newSubCategoryName) async {
-    try {
-      await _dio.put('$_endpoint/$mainCategoryId/subcategories/$subCategoryId', data: {'name': newSubCategoryName});
-    } on DioException catch (e) {
-      throw Exception('서브 카테고리 수정 실패: ${e.response?.data['message'] ?? e.message}');
-    }
-  }
-  
-  // 서브 카테고리 삭제
-  Future<void> deleteSubCategory(String mainCategoryId, String subCategoryId) async {
-    try {
-      await _dio.delete('$_endpoint/$mainCategoryId/subcategories/$subCategoryId');
-    } on DioException catch (e) {
-      throw Exception('서브 카테고리 삭제 실패: ${e.response?.data['message'] ?? e.message}');
+      throw Exception('카테고리 삭제에 실패했습니다: ${e.response?.data['error'] ?? e.message}');
+    } catch (e) {
+      throw Exception('알 수 없는 오류가 발생했습니다: $e');
     }
   }
 }

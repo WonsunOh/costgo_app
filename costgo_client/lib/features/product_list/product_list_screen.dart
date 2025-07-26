@@ -1,54 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:costgo_app/providers/product_provider.dart';
+import 'package:costgo_app/features/product/product_card.dart';
 
-import '../../admin_panel/products/providers/admin_product_providers.dart';
-import '../product/product_card.dart';
-import '../product_detail/product_detail_screen.dart';
-
-class ProductListScreen extends ConsumerWidget { // ConsumerStatefulWidget -> ConsumerWidget
-  final String categoryId;
+class ProductListScreen extends ConsumerWidget {
+  // 특정 카테고리의 상품 목록을 보여주고 싶다면 이 파라미터를 사용
+  final String? categoryId; 
   final String categoryName;
-  // isMainCategoryView 및 탭 관련 로직은 일단 단순화하여,
-  // 특정 categoryId에 대한 상품 목록만 보여준다고 가정.
-  // 탭 기능이 필요하면 이전 답변처럼 ConsumerStatefulWidget으로 구현.
 
-  const ProductListScreen({
-    super.key,
-    required this.categoryId,
-    required this.categoryName,
-  });
+  const ProductListScreen({super.key, this.categoryId, required this.categoryName});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 카테고리 ID로 상품 목록을 가져오는 Provider를 watch
-    final asyncProducts = ref.watch(productsByCategoryProvider(categoryId));
+    // TODO: categoryId를 사용하여 필터링하는 로직을 productsProvider에 추가해야 합니다.
+    // 지금은 모든 상품을 가져옵니다.
+    final productsAsync = ref.watch(productsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(categoryName)),
-      body: asyncProducts.when(
-        data: (products) {
-          if (products.isEmpty) {
-            return Center(child: Text('"$categoryName" 카테고리에 상품이 없습니다.'));
-          }
-          return GridView.builder(
-            padding: const EdgeInsets.all(12.0),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2, childAspectRatio: 0.7, crossAxisSpacing: 10, mainAxisSpacing: 10,
-            ),
-            itemCount: products.length,
-            itemBuilder: (context, index) {
-              final product = products[index];
-              return ProductCard(
-                product: product,
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailScreen(product: product)));
-                },
-              );
-            },
-          );
-        },
+      appBar: AppBar(
+        title: Text(categoryName),
+      ),
+      body: productsAsync.when(
+        data: (products) => GridView.builder(
+          padding: const EdgeInsets.all(16),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 0.8,
+            mainAxisSpacing: 16,
+            crossAxisSpacing: 16,
+          ),
+          itemCount: products.length,
+          itemBuilder: (context, index) {
+            return ProductCard(product: products[index]);
+          },
+        ),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, s) => Center(child: Text('상품 목록 로드 오류: $e')),
+        error: (err, stack) => Center(child: Text('상품 로딩 실패: $err')),
       ),
     );
   }

@@ -1,104 +1,136 @@
+// costgo_client/lib/features/main_app/profile_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:costgo_app/providers/auth_provider.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../models/user_model.dart';
-import '../../providers/auth_provider.dart';
-import '../auth/login_screen.dart';
-// ... (다른 메뉴 화면 import)
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final asyncCurrentUser = ref.watch(authProvider);
+    // authNotifierProvider를 watch하여 인증 상태를 가져옵니다.
+    final authState = ref.watch(authNotifierProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('마이페이지'),
-        centerTitle: true,
+        title: const Text('내 정보'),
       ),
-      body: asyncCurrentUser.when(
-        data: (user) {
-          if (user == null) {
-            // 로그인 상태가 아니면 로그인 안내
-            return Center(
-              child: ElevatedButton(
-                onPressed: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                ),
-                child: const Text('로그인하기'),
-              ),
-            );
-          }
-          // 로그인된 경우 UI 표시
-          return ListView(
-            children: <Widget>[
-              _buildUserProfileSection(context, user),
-              const Divider(height: 8, thickness: 8),
-              _buildMenuListTile(
-                context,
-                icon: Icons.person_outline,
-                title: '개인 정보 수정',
-                onTap: () { /* TODO: EditProfileScreen으로 이동 */ },
-              ),
-              // ... 다른 메뉴 ListTile ...
-              const Divider(),
-              _buildMenuListTile(
-                context,
-                icon: Icons.logout,
-                title: '로그아웃',
-                onTap: () async {
-                  // Notifier의 signOut 메소드 호출
-                  await ref.read(authProvider.notifier).signOut();
-                  if (context.mounted) {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (context) => const LoginScreen()),
-                      (route) => false,
-                    );
-                  }
-                },
-              ),
-            ],
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, s) => Center(child: Text('사용자 정보 로드 오류: $e')),
-      ),
+      // body: authState is Authenticated
+      //     ? ListView(
+      //         children: [
+      //           UserAccountsDrawerHeader(
+      //             accountName: Text(authState.user.username),
+      //             accountEmail: Text(authState.user.email),
+      //             currentAccountPicture: CircleAvatar(
+      //               // 이미지가 있다면 표시, 없다면 기본 아이콘
+      //               backgroundImage: authState.user.profileImageUrl != null
+      //                   ? NetworkImage(authState.user.profileImageUrl!)
+      //                   : null,
+      //               child: authState.user.profileImageUrl == null
+      //                   ? const Icon(Icons.person, size: 50)
+      //                   : null,
+      //             ),
+      //           ),
+      //           ListTile(
+      //             leading: const Icon(Icons.edit),
+      //             title: const Text('회원 정보 수정'),
+      //             onTap: () {
+      //               // GoRouter를 사용하여 프로필 수정 화면으로 이동
+      //               context.push('/profile/edit');
+      //             },
+      //           ),
+      //           ListTile(
+      //             leading: const Icon(Icons.list_alt),
+      //             title: const Text('주문 내역'),
+      //             onTap: () {
+      //               // TODO: 주문 내역 화면으로 이동
+      //             },
+      //           ),
+      //           ListTile(
+      //             leading: const Icon(Icons.favorite_border),
+      //             title: const Text('찜한 상품'),
+      //             onTap: () {
+      //               // GoRouter를 사용하여 찜한 상품 화면으로 이동
+      //               context.push('/profile/wishlist');
+      //             },
+      //           ),
+      //           const Divider(),
+      //           ListTile(
+      //             leading: const Icon(Icons.logout, color: Colors.red),
+      //             title: const Text('로그아웃'),
+      //             onTap: () async {
+      //               // 로그아웃 버튼을 누르면 authNotifier의 logout 메소드 호출
+      //               await ref.read(authNotifierProvider.notifier).logout();
+      //               // 화면 이동은 GoRouter가 자동으로 처리합니다.
+      //             },
+      //           ),
+      //         ],
+      //       )
+      //     : const Center(
+      //         // 인증 정보가 로딩 중이거나 없을 경우 (이론상 GoRouter가 막아줌)
+      //         child: CircularProgressIndicator(),
+      //       ),
+
+     body: switch (authState) {
+        Authenticated(:final user) => _buildLoggedInView(context, ref, user),
+        _ => _buildLoggedOutView(context),
+      },
     );
   }
 
-  Widget _buildUserProfileSection(BuildContext context, UserModel user) {
-    return Container(
-      padding: const EdgeInsets.all(20.0),
-      child: Row(
+  // 로그인 되었을 때 보여줄 위젯
+  Widget _buildLoggedInView(BuildContext context, WidgetRef ref, UserModel user) {
+    return ListView(
+      children: [
+        UserAccountsDrawerHeader(
+          accountName: Text(user.username),
+          accountEmail: Text(user.email),
+          // ... (기존과 동일)
+        ),
+        ListTile(
+          leading: const Icon(Icons.edit),
+          title: const Text('회원 정보 수정'),
+          onTap: () => context.push('/profile/edit'),
+        ),
+        ListTile(
+          leading: const Icon(Icons.list_alt),
+          title: const Text('주문 내역'),
+          onTap: () => context.push('/profile/orders'),
+        ),
+        ListTile(
+          leading: const Icon(Icons.favorite_border),
+          title: const Text('찜한 상품'),
+          onTap: () => context.push('/profile/wishlist'),
+        ),
+        const Divider(),
+        ListTile(
+          leading: const Icon(Icons.logout, color: Colors.red),
+          title: const Text('로그아웃'),
+          onTap: () async {
+            await ref.read(authNotifierProvider.notifier).logout();
+          },
+        ),
+      ],
+    );
+  }
+
+  // 로그아웃 되었을 때 보여줄 위젯
+  Widget _buildLoggedOutView(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircleAvatar(
-            radius: 35,
-            child: Text(user.name.isNotEmpty ? user.name[0] : ''),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('${user.name}님', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text(user.email, style: TextStyle(fontSize: 14, color: Colors.grey.shade700)),
-              ],
-            ),
+          const Text('로그인이 필요한 서비스입니다.'),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () => context.go('/login'),
+            child: const Text('로그인 / 회원가입'),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildMenuListTile(BuildContext context, {required IconData icon, required String title, VoidCallback? onTap}) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.grey.shade700),
-      title: Text(title, style: const TextStyle(fontSize: 16)),
-      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-      onTap: onTap,
     );
   }
 }

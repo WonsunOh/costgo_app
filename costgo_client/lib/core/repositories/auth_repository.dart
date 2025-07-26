@@ -1,160 +1,116 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/user_model.dart';
+import '../../providers/dio_provider.dart';
 
-// Dio 및 Secure Storage Provider
-final dioProvider = Provider<Dio>((ref) => Dio(BaseOptions(baseUrl: 'http://localhost:3000/api')));
-final secureStorageProvider = Provider<FlutterSecureStorage>((ref) => const FlutterSecureStorage());
-
-
+/// authRepositoryProvider가 dioProvider를 사용하도록 수정합니다.
+final authRepositoryProvider = Provider((ref) => AuthRepository(
+      dio: ref.watch(dioProvider), // ref.watch(dioProvider) 사용
+    ));
 
 class AuthRepository {
-  final Dio _dio;
-  final FlutterSecureStorage _storage;
-   final GoogleSignIn _googleSignIn;
-  final String _tokenKey = 'auth_token'; // 토큰 저장용 키
+  final Dio dio;
 
-  AuthRepository(this._dio, this._storage, this._googleSignIn);
+  // baseUrl을 직접 받지 않고, dioProvider에 설정된 값을 사용합니다.
+  AuthRepository({required this.dio});
 
-  // 이메일/비밀번호로 회원가입
-  Future<void> signUp({
-    required String name,
-    required String email,
-    required String password,
-    String? phoneNumber,
-    String? address,
-  }) async {
+  Future<UserModel> login(String email, String password) async {
     try {
-      // Node.js의 /api/auth/signup 엔드포인트에 POST 요청
-      await _dio.post('/auth/signup', data: {
-        'name': name,
-        'email': email,
-        'password': password,
-        'phoneNumber': phoneNumber,
-        'address': address,
-      });
-    } on DioException catch (e) {
-      // 서버에서 보낸 에러 메시지(예: 이메일 중복)를 사용자에게 전달
-      final errorMessage = e.response?.data['message'] ?? '회원가입 중 오류가 발생했습니다.';
-      throw Exception(errorMessage);
-    } catch (e) {
-      throw Exception('알 수 없는 오류가 발생했습니다.');
-    }
-  }
+      final response = await dio.post(
+        '/auth/login', // 기본 URL이 dio에 설정되어 있으므로 뒷부분만 작성합니다.
+        data: {
+          'email': email,
+          'password': password,
+        },
+      );
 
-  Future<UserModel> signIn({
-    required String email,
-    required String password,
-  }) async {
-    try {
-      final response = await _dio.post('/auth/login', data: {
-        'email': email,
-        'password': password,
-      });
+      if (response.statusCode == 200) {
+        final user = UserModel.fromJson(response.data['user']);
+        final token = response.data['token'];
 
-      final String token = response.data['token'];
-      await _storage.write(key: _tokenKey, value: token);
-      _dio.options.headers['Authorization'] = 'Bearer $token';
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('x-auth-token', token);
+        await prefs.setString('user', jsonEncode(user.toJson()));
 
-      // ★★★ 여기서 직접 JSON을 UserModel 객체로 변환하여 반환 ★★★
-      return UserModel.fromJson(response.data['user']);
-    } on DioException catch (e) {
-      final errorMessage = e.response?.data['message'] ?? '로그인 중 오류가 발생했습니다.';
-      throw Exception(errorMessage);
-    } catch (e) {
-      throw Exception('알 수 없는 오류가 발생했습니다.');
-    }
-  }
-
-  // tryAutoLogin도 UserModel?을 직접 반환하도록 수정
-  Future<UserModel?> tryAutoLogin() async {
-    final token = await _storage.read(key: _tokenKey);
-    if (token == null || token.isEmpty) return null;
-
-    try {
-      _dio.options.headers['Authorization'] = 'Bearer $token';
-      final response = await _dio.get('/auth/me'); 
-
-      // ★★★ 서버 응답 데이터 직접 확인을 위한 로그 추가 ★★★
-    print('--- 서버 응답 (tryAutoLogin) ---');
-    print(response.data);
-    print('----------------------------------');
-
-
-     if (response.data != null && response.data['user'] is Map<String, dynamic>) {
-        return UserModel.fromJson(response.data['user']);
+        return user;
       } else {
-        throw Exception("서버 응답 형식이 올바르지 않습니다.");
+        throw Exception('Failed to login: ${response.data['msg']}');
       }
-    } catch(e) {
-      await signOut();
-      return null;
+    } on DioException catch (e) {
+      // Dio 에러의 경우, 더 자세한 정보를 포함하여 예외를 던집니다.
+      throw Exception('Failed to login: ${e.response?.data['msg'] ?? e.message}');
+    } catch (e) {
+      throw Exception('An unknown error occurred: $e');
     }
   }
-  
 
-  // 로그아웃
-  Future<void> signOut() async {
-    // 저장된 토큰 삭제
-    await _storage.delete(key: _tokenKey);
-    // dio 헤더에서 토큰 제거
-    _dio.options.headers.remove('Authorization');
-    // TODO: 백엔드에 /api/auth/logout 엔드포인트가 있다면 호출하여 서버 측 세션도 정리
-  }
-  
+  Future<UserModel> signUp(String username, String email, String password) async {
+  // ================== DEBUG LOG ==================
+  print('[DEBUG] AuthRepository: signUp 메소드 시작');
+  // ===============================================
 
-  // ★★★ signInWithGoogle 메소드 추가 ★★★
-  Future<UserModel?> signInWithGoogle() async {
     try {
-      // 1. Google 로그인 팝업/화면을 띄워 사용자 계정 정보 가져오기
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) {
-        // 사용자가 로그인을 취소한 경우
+      final response = await dio.post(
+        '/auth/signup',
+        data: {
+          'username': username,
+          'email': email,
+          'password': password,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final user = UserModel.fromJson(response.data['user']);
+        final token = response.data['token'];
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('x-auth-token', token);
+        await prefs.setString('user', jsonEncode(user.toJson()));
+        
+        return user;
+      } else {
+        throw Exception('Failed to sign up: ${response.data['msg']}');
+      }
+    } on DioException catch (e) {
+      throw Exception('Failed to sign up: ${e.response?.data['msg'] ?? e.message}');
+    } catch (e) {
+      throw Exception('An unknown error occurred: $e');
+    }
+  }
+
+  Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('x-auth-token');
+    await prefs.remove('user');
+  }
+
+  Future<UserModel?> getUserData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('x-auth-token');
+
+      if (token == null) {
         return null;
       }
 
-      // 2. Google 인증 토큰 가져오기
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      final String? idToken = googleAuth.idToken; // 백엔드에 보낼 idToken
+      final response = await dio.get(
+        '/auth/me',
+        options: Options(
+          headers: {'x-auth-token': token},
+        ),
+      );
 
-      if (idToken == null) {
-        throw Exception('Google로부터 ID 토큰을 가져오지 못했습니다.');
+      if (response.statusCode == 200) {
+        final user = UserModel.fromJson(response.data);
+         await prefs.setString('user', jsonEncode(user.toJson()));
+        return user;
       }
-      
-      // 3. 직접 만든 Node.js 백엔드의 소셜 로그인 엔드포인트에 토큰 전송
-      //    예시: POST /api/auth/google
-      final response = await _dio.post('/auth/google', data: {
-        'idToken': idToken,
-      });
-
-      // 4. 백엔드로부터 받은 JWT와 사용자 정보 처리
-      final String token = response.data['token'];
-      await _storage.write(key: _tokenKey, value: token);
-      
-      _dio.options.headers['Authorization'] = 'Bearer $token';
-
-      return UserModel.fromJson(response.data['user']);
-
+      return null;
     } catch (e) {
-      // Google 로그인 취소 외의 모든 에러 처리
-      print('Google 로그인 과정에서 오류 발생: $e');
-      // 이미 로그아웃된 상태일 수 있으므로 여기서도 로그아웃 처리
-      await _googleSignIn.signOut();
-      throw Exception('Google 로그인에 실패했습니다.');
+      return null;
     }
   }
-  
 }
-
-// ★★★ authRepositoryProvider 수정 ★★★
-final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  // 생성자에 GoogleSignIn() 인스턴스 추가
-  return AuthRepository(
-    ref.read(dioProvider), 
-    ref.read(secureStorageProvider),
-    GoogleSignIn(), // GoogleSignIn 인스턴스 주입
-  );
-});

@@ -1,90 +1,40 @@
+// wonsunoh/costgo_app/costgo_app-9808e08a82f4563240a921b4f6a042a68c2c8c6a/costgo_client/lib/providers/category_provider.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../core/repositories/category_repository.dart';
 import '../models/category_model.dart';
 
-// CategoryNotifier 클래스 수정
-class CategoryNotifier extends StateNotifier<AsyncValue<List<MainCategory>>> {
-  final CategoryRepository _repository;
+// 1. 서버에서 받은 '평평한' 리스트를 제공하는 Provider (기존과 동일)
+final categoryProvider = FutureProvider<List<CategoryModel>>((ref) async {
+  return ref.watch(categoryRepositoryProvider).getCategories();
+});
 
-  CategoryNotifier(this._repository) : super(const AsyncValue.loading()) {
-    fetchCategories(); // 생성 시 카테고리 목록 로드
-  }
 
-  // 카테고리 목록 가져오기 (Repository 호출)
-  Future<void> fetchCategories() async {
-    // 재시도 등을 위해 명시적으로 로딩 상태 설정
-    state = const AsyncValue.loading();
-    try {
-      final categories = await _repository.fetchCategories();
-      // 성공 시 데이터로 상태 업데이트
-      if (mounted) state = AsyncValue.data(categories);
-    } catch (e, s) {
-      // 실패 시 에러 상태로 업데이트
-      if (mounted) state = AsyncValue.error(e, s);
-    }
-  }
+// 2. '평평한' 리스트를 '계층' 구조로 가공하여 제공하는 새로운 Provider
+final hierarchicalCategoryProvider = Provider<List<CategoryModel>>((ref) {
+  // categoryProvider의 결과값을 watch
+  final asyncCategories = ref.watch(categoryProvider);
 
-  // 모든 CRUD 메소드는 Repository를 호출한 후 목록을 새로고침합니다.
-  // 에러 발생 시 UI에서 처리할 수 있도록 Exception을 다시 던집니다(rethrow).
-  Future<void> addMainCategory(String name) async {
-    try {
-      await _repository.addMainCategory(name);
-      await fetchCategories();
-    } catch (e) {
-      rethrow;
-    }
-  }
-  
-  Future<void> updateMainCategory(String id, String newName) async {
-    try {
-      await _repository.updateMainCategory(id, newName);
-      await fetchCategories();
-    } catch (e) {
-      rethrow;
-    }
-  }
+  // 데이터가 성공적으로 로드되었을 때만 가공 로직 실행
+  return asyncCategories.when(
+    data: (flatList) {
+      // 모든 카테고리를 ID를 키로 하는 맵으로 만들어 쉽게 찾을 수 있도록 함
+      final map = {for (var cat in flatList) cat.id: cat};
+      final topLevelCategories = <CategoryModel>[];
 
-  Future<void> deleteMainCategory(String id) async {
-    try {
-      await _repository.deleteMainCategory(id);
-      await fetchCategories();
-    } catch (e) {
-      rethrow;
-    }
-  }
-  
-  Future<void> addSubCategory(String mainCategoryId, String subCategoryName) async {
-    try {
-      await _repository.addSubCategory(mainCategoryId, subCategoryName);
-      await fetchCategories();
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<void> updateSubCategory(String mainCategoryId, String subCategoryId, String newSubCategoryName) async {
-    try {
-      await _repository.updateSubCategory(mainCategoryId, subCategoryId, newSubCategoryName);
-      await fetchCategories();
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<void> deleteSubCategory(String mainCategoryId, String subCategoryId) async {
-    try {
-      await _repository.deleteSubCategory(mainCategoryId, subCategoryId);
-      await fetchCategories();
-    } catch (e) {
-      rethrow;
-    }
-  }
-}
-
-// StateNotifierProvider 정의 수정
-final mainCategoryListProvider =
-    StateNotifierProvider.autoDispose<CategoryNotifier, AsyncValue<List<MainCategory>>>((ref) {
-  // CategoryRepository를 watch하여 Notifier에 주입
-  return CategoryNotifier(ref.watch(categoryRepositoryProvider));
+      for (final category in flatList) {
+        // 부모 ID가 있는 경우, 맵에서 부모를 찾아 children 리스트에 자신을 추가
+        if (category.parentId != null && map.containsKey(category.parentId)) {
+          map[category.parentId]!.children.add(category);
+        }
+        // 부모 ID가 없는 경우, 최상위 카테고리이므로 별도 리스트에 추가
+        else {
+          topLevelCategories.add(category);
+        }
+      }
+      return topLevelCategories;
+    },
+    // 로딩 중이거나 에러가 발생한 경우 빈 리스트 반환
+    loading: () => [],
+    error: (err, stack) => [],
+  );
 });

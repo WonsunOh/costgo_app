@@ -1,35 +1,50 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:costgo_app/providers/order_provider.dart';
 
-class OrderHistoryScreen extends StatelessWidget {
+class OrderHistoryScreen extends ConsumerWidget {
   const OrderHistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final myOrdersAsync = ref.watch(myOrdersProvider);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('주문/배송 조회'),
-        centerTitle: true,
-      ),
-      body: ListView.builder( // 실제로는 주문 목록을 표시
-        itemCount: 3, // 예시로 3개의 주문
-        itemBuilder: (context, index) {
-          return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: ListTile(
-              leading: Icon(Icons.receipt_long_outlined, color: Theme.of(context).primaryColor),
-              title: Text('주문번호: ORD2025060${index + 1}'),
-              subtitle: Text('주문일: 2025-05-${28 + index}\n상품명: 샘플 상품 ${index + 1} 외 1건'),
-              trailing: const Icon(Icons.chevron_right),
-              isThreeLine: true,
-              onTap: () {
-                // TODO: 주문 상세 화면으로 이동
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('주문 ORD2025060${index + 1} 상세 보기 (구현 예정)')),
-                );
-              },
-            ),
+      appBar: AppBar(title: const Text('주문 내역')),
+      body: myOrdersAsync.when(
+        data: (orders) {
+          if (orders.isEmpty) {
+            return const Center(child: Text('주문 내역이 없습니다.'));
+          }
+          return ListView.builder(
+            itemCount: orders.length,
+            itemBuilder: (context, index) {
+              final order = orders[index];
+              return Card(
+                margin: const EdgeInsets.all(8.0),
+                child: ExpansionTile(
+                  title: Text('주문 #${order.id.substring(0, 8)}...'),
+                  subtitle: Text('주문일: ${order.orderedAt.toString().substring(0, 10)}'),
+                  trailing: Text(order.status),
+                  children: [
+                    for (var item in order.products)
+                      ListTile(
+                        title: Text(item.product.name),
+                        subtitle: Text('${item.quantity}개'),
+                        trailing: Text('${item.price}원'),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text('총액: ${order.totalPrice}원', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    )
+                  ],
+                ),
+              );
+            },
           );
         },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('오류: $err')),
       ),
     );
   }

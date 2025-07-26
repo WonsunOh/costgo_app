@@ -19,6 +19,8 @@ const app = express();
 app.use(cors()); // CORS 허용
 app.use(express.json()); // JSON 요청 본문 파싱
 
+
+
 // 기본 라우트 (서버가 살아있는지 확인용)
 app.get('/', (req, res) => {
   res.send('E-commerce API 서버가 실행 중입니다.');

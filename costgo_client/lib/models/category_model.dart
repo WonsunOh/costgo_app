@@ -1,122 +1,37 @@
-import 'package:flutter/foundation.dart';
-
-// SubCategory 모델
-class SubCategory {
+class CategoryModel {
   final String id;
   final String name;
+  final String? parentId;
+  // 'children'은 서버에서 오는 데이터가 아니므로, final을 제거하고
+  // 클라이언트에서 데이터를 가공하여 채워넣을 수 있도록 List<CategoryModel> 타입으로 변경합니다.
+  List<CategoryModel> children;
 
-  SubCategory({
+  CategoryModel({
     required this.id,
     required this.name,
+    this.parentId,
+    // 기본값은 빈 리스트로 설정합니다.
+    this.children = const [],
   });
 
-  factory SubCategory.fromJson(Map<String, dynamic> json) {
-    return SubCategory(
-      id: json['_id'] as String? ?? json['id'] as String? ?? '',
-      name: json['name'] as String? ?? '이름 없음',
+  // fromJson 팩토리 생성자를 서버 응답에 맞게 수정합니다.
+  factory CategoryModel.fromJson(Map<String, dynamic> json) {
+    return CategoryModel(
+      // 서버에서는 '_id'로 오므로 정확히 매핑합니다.
+      id: json['_id'],
+      name: json['name'],
+      // 서버에서 parent 필드가 null일 수 있습니다.
+      parentId: json['parent'],
+      // 'children' 필드는 더 이상 json에서 파싱하지 않습니다.
     );
   }
 
-
-  Map<String, dynamic> toMap() {
+  // C/U/D 작업을 위해 toJson 메소드도 명확하게 정의합니다.
+  Map<String, dynamic> toJson() {
     return {
       'id': id,
       'name': name,
+      'parent': parentId,
     };
-  }
-
-  SubCategory copyWith({
-    String? id,
-    String? name,
-  }) {
-    return SubCategory(
-      id: id ?? this.id,
-      name: name ?? this.name,
-    );
-  }
-
-  @override
-  String toString() => 'SubCategory(id: $id, name: $name)';
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is SubCategory && other.id == id && other.name == name;
-  }
-
-  @override
-  int get hashCode => id.hashCode ^ name.hashCode;
-}
-
-
-// MainCategory 모델
-class MainCategory {
-  final String id; // Firestore 문서 ID
-  final String name;
-  final String iconPath;
-  final List<SubCategory> subCategories;
-
-  MainCategory({
-    required this.id,
-    required this.name,
-    required this.iconPath,
-    List<SubCategory>? subCategories,
-  }) : subCategories = subCategories ?? const []; // const [] 사용
-
-  factory MainCategory.fromJson(Map<String, dynamic> json) {
-    return MainCategory(
-      id: json['_id'] as String? ?? json['id'] as String? ?? '',
-      name: json['name'] as String? ?? '이름 없음',
-      iconPath: json['iconPath'] as String? ?? 'assets/icons/default_category.png',
-      subCategories: (json['subCategories'] as List<dynamic>? ?? [])
-          .map((subData) => SubCategory.fromJson(subData as Map<String, dynamic>))
-          .toList(),
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'name': name,
-      'iconPath': iconPath,
-      'subCategories': subCategories.map((sub) => sub.toMap()).toList(),
-    };
-  }
-
-  MainCategory copyWith({
-    String? id,
-    String? name,
-    String? iconPath,
-    List<SubCategory>? subCategories,
-  }) {
-    return MainCategory(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      iconPath: iconPath ?? this.iconPath,
-      subCategories: subCategories ?? this.subCategories,
-    );
-  }
-
-  @override
-  String toString() {
-    return 'MainCategory(id: $id, name: $name, iconPath: $iconPath, subCategories: $subCategories)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-  
-    return other is MainCategory &&
-      other.id == id &&
-      other.name == name &&
-      other.iconPath == iconPath &&
-      listEquals(other.subCategories, subCategories); // 리스트 비교
-  }
-
-  @override
-  int get hashCode {
-    return id.hashCode ^
-      name.hashCode ^
-      iconPath.hashCode ^
-      subCategories.hashCode; // 리스트의 해시코드
   }
 }

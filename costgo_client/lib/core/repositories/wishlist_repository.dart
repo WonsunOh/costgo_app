@@ -1,44 +1,41 @@
+import 'package:costgo_app/models/product_model.dart';
+import 'package:costgo_app/providers/dio_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'auth_repository.dart';
-
-final wishlistRepositoryProvider = Provider<WishlistRepository>((ref) {
-  return WishlistRepository(ref.watch(dioProvider));
-});
+final wishlistRepositoryProvider = Provider(
+  (ref) => WishlistRepository(dio: ref.watch(dioProvider)),
+);
 
 class WishlistRepository {
   final Dio _dio;
-  final String _endpoint = '/wishlist'; // Node.js 서버의 찜 목록 API 경로
 
-  WishlistRepository(this._dio);
+  WishlistRepository({required Dio dio}) : _dio = dio;
 
-  // 현재 사용자의 찜 목록(상품 ID 리스트) 가져오기
-  Future<List<String>> fetchWishlistIds() async {
+  Future<List<ProductModel>> getWishlist() async {
     try {
-      final response = await _dio.get(_endpoint);
-      // 백엔드 API가 { "productIds": ["id1", "id2", ...] } 와 같은 형식으로 응답한다고 가정
-      return List<String>.from(response.data['productIds'] as List<dynamic>? ?? []);
-    } on DioException catch (e) {
-      throw Exception('찜 목록을 불러오는 데 실패했습니다: ${e.response?.data['message'] ?? e.message}');
+      final response = await _dio.get('/wishlist');
+      return (response.data as List)
+          .map((item) => ProductModel.fromJson(item))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to fetch wishlist: $e');
     }
   }
 
-  // 찜 목록에 상품 추가
   Future<void> addToWishlist(String productId) async {
     try {
-      await _dio.post(_endpoint, data: {'productId': productId});
-    } on DioException catch (e) {
-      throw Exception('찜 목록 추가 실패: ${e.response?.data['message'] ?? e.message}');
+      await _dio.post('/wishlist/add', data: {'productId': productId});
+    } catch (e) {
+      throw Exception('Failed to add to wishlist: $e');
     }
   }
 
-  // 찜 목록에서 상품 제거
   Future<void> removeFromWishlist(String productId) async {
     try {
-      await _dio.delete('$_endpoint/$productId');
-    } on DioException catch (e) {
-      throw Exception('찜 목록 제거 실패: ${e.response?.data['message'] ?? e.message}');
+      await _dio.delete('/wishlist/remove/$productId');
+    } catch (e) {
+      throw Exception('Failed to remove from wishlist: $e');
     }
   }
 }

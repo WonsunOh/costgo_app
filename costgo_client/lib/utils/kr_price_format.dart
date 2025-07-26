@@ -1,6 +1,6 @@
 import 'package:intl/intl.dart';
 
-String formatPrice(double price, {bool includeSymbol = true, int decimalDigits = 0}) {
+String krPriceFormat(double price, {bool includeSymbol = true, int decimalDigits = 0}) {
   final format = NumberFormat.currency(
     locale: 'ko_KR', // 한국 로케일
     symbol: includeSymbol ? '₩' : '', // 통화 기호 포함 여부

@@ -1,152 +1,64 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:costgo_app/providers/cart_provider.dart';
 
 import '../../../models/cart_item_model.dart';
-import '../../../providers/cart_provider.dart';
 
-class CartItemWidget extends ConsumerWidget {
-  final CartItem cartItem;
+class CartItem extends ConsumerWidget {
+  final CartItemModel item;
 
-  const CartItemWidget({super.key, required this.cartItem});
+  const CartItem({super.key, required this.item});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.symmetric(vertical: 4.0),
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: const EdgeInsets.all(8.0),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 상품 선택 체크박스
+            // 상품 이미지
             SizedBox(
-              width: 24, // 체크박스 공간 확보
-              child: Checkbox(
-                value: cartItem.isSelected,
-                onChanged: (bool? value) {
-                  ref.read(cartProvider.notifier).toggleItemSelectedByUniqueId(cartItem.uniqueId);
-                },
-                visualDensity: VisualDensity.compact,
-                activeColor: Theme.of(context).primaryColor,
-              ),
+              width: 80,
+              height: 80,
+              child: Icon(Icons.image, size: 50, color: Colors.grey[300]),
             ),
-            const SizedBox(width: 12),
-
-            // 상품 이미지 (임시)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                width: 80,
-                height: 80,
-                color: Colors.grey.shade200,
-                child: cartItem.product.imageUrl.startsWith('http')
-                    ? Image.network(cartItem.product.imageUrl, fit: BoxFit.cover,
-                        errorBuilder: (c, o, s) => const Icon(Icons.error_outline, size: 40),
-                      )
-                    : Icon(Icons.image_not_supported_outlined, size: 40, color: Colors.grey.shade400),
-              ),
-            ),
-            const SizedBox(width: 12),
-
-            // 상품 정보 및 수량 조절
+            const SizedBox(width: 10),
+            // 상품 정보
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    cartItem.product.name,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  // 옵션 표시 (추가)
-                  if (cartItem.selectedOptionsDescription != null && cartItem.selectedOptionsDescription!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Text(
-                        '옵션: ${cartItem.selectedOptionsDescription}',
-                        style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${cartItem.product.price.toStringAsFixed(0)}원',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // 수량 조절
-                      Row(
-                        children: [
-                          _buildQuantityButton(
-                            context,
-                            icon: Icons.remove,
-                            onPressed: cartItem.quantity > 1
-                                ? () {
-                                    // uniqueId 사용으로 변경
-                                    ref.read(cartProvider.notifier).updateQuantityByUniqueId(cartItem.uniqueId, cartItem.quantity - 1);
-                                  }
-                                : null, // 1개일 때는 비활성화
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                            child: Text(
-                              '${cartItem.quantity}',
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          _buildQuantityButton(
-                            context,
-                            icon: Icons.add,
-                            onPressed: () {
-                              // uniqueId 사용으로 변경
-                              ref.read(cartProvider.notifier).updateQuantityByUniqueId(cartItem.uniqueId, cartItem.quantity + 1);
-                            },
-                          ),
-                        ],
-                      ),
-                      // 삭제 버튼
-                      IconButton(
-                        icon: Icon(Icons.delete_outline, color: Colors.red.shade400, size: 22),
-                        onPressed: () {
-                          // uniqueId 사용으로 변경
-                          ref.read(cartProvider.notifier).removeItemByUniqueId(cartItem.uniqueId);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('${cartItem.product.name} 삭제됨'), duration: const Duration(seconds: 1)),
-                          );
-                        },
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ],
-                  ),
+                  Text(item.product.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text('${item.product.price.toStringAsFixed(0)}원'),
                 ],
               ),
             ),
+            // 수량 조절
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.remove),
+                  onPressed: () {
+                    if (item.quantity > 1) {
+                      ref.read(cartNotifierProvider.notifier).updateQuantity(item.product.id, item.quantity - 1);
+                    } else {
+                      // 수량이 1일 때 누르면 삭제
+                      ref.read(cartNotifierProvider.notifier).removeFromCart(item.product.id);
+                    }
+                  },
+                ),
+                Text(item.quantity.toString()),
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: () {
+                     ref.read(cartNotifierProvider.notifier).updateQuantity(item.product.id, item.quantity + 1);
+                  },
+                ),
+              ],
+            )
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildQuantityButton(BuildContext context, {required IconData icon, VoidCallback? onPressed}) {
-    return InkWell(
-      onTap: onPressed,
-      customBorder: const CircleBorder(),
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: onPressed != null ? Colors.grey.shade400 : Colors.grey.shade300),
-          color: onPressed == null ? Colors.grey.shade100 : Colors.transparent,
-        ),
-        child: Icon(icon, size: 18, color: onPressed != null ? Colors.black87 : Colors.grey.shade400),
       ),
     );
   }

@@ -1,9 +1,11 @@
 const express = require('express');
 const productController = require('../controllers/productController');
 const authMiddleware = require('../middleware/authMiddleware');
+const multer = require('multer');
 
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
 // ======================================================
 // ==               일반 사용자용 라우트                ==

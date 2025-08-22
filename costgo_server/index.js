@@ -5,9 +5,12 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 
+const authMiddleware = require('./src/middleware/authMiddleware');
+
 // 라우트 파일 import 
 const authRoutes = require('./src/routes/authRoutes');
 const productRoutes = require('./src/routes/productRoutes');
+// const adminProductRoutes = require('./src/routes/adminProductRoutes'); 
 const categoryRoutes = require('./src/routes/categoryRoutes');
 const userRoutes = require('./src/routes/userRoutes');
 const wishlistRoutes = require('./src/routes/wishlistRoutes');
@@ -16,7 +19,12 @@ const wishlistRoutes = require('./src/routes/wishlistRoutes');
 const app = express();
 
 // 미들웨어 설정
-app.use(cors()); // CORS 허용
+// 모든 출처에서의 요청을 허용하는 더 구체적인 CORS 설정을 적용합니다.
+app.use(cors({
+  origin: '*', // 모든 도메인에서의 요청을 허용
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // 허용할 HTTP 메소드
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token'], // 허용할 헤더
+}));
 app.use(express.json()); // JSON 요청 본문 파싱
 
 
@@ -29,6 +37,7 @@ app.get('/', (req, res) => {
 // API 라우트 연결
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
+// app.use('/api/admin/products', adminProductRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/users', userRoutes); // 관리자용 회원 관리 라우트
 app.use('/api/wishlist', wishlistRoutes);
